@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN//EN"
+    "http://www.springframework.org/dtd/spring-beans.dtd">
+<beans>
+
+
+	<bean id="dataSource"
+		class="org.springframework.jdbc.datasource.DriverManagerDataSource">
+
+		<property name="driverClassName" value="com.mysql.jdbc.Driver" />
+		<property name="url" value="jdbc:mysql://localhost:3306/test" />
+		<property name="username" value="root" />
+		<property name="password" value="880ds2d" />
+	</bean>
+	
+	<bean id="configproperties" class="com.nfd.common.spring.ReloadablePropertiesFactoryBean" >
+		<property name="location" value="file:src/main/resources/config.properties" />
+	</bean>
+	
+	<bean id="dbConfigproperties" class="com.nfd.common.spring.DBConfigReloadablePropertiesFactoryBean" >
+		<property name="dataSource" ref="dataSource" />
+	</bean>
+
+	<bean id="propertyConfigurer"
+		class="com.nfd.common.spring.ReloadingPropertyPlaceholderConfigurer">
+		<property name="properties" ref="configproperties" />
+		<property name="dataSource" ref="dataSource"></property>
+	</bean>
+
+	<bean id="mybean" class="com.nfd.common.spring.example.MyBean">
+		<property name="cachesize" value="#{my.cache.size=100}" />
+	</bean>
+
+	<bean id="mybean2" class="com.nfd.common.spring.example.MyBean2">
+		<property name="cachesize" value="#{my.cache.size2=100}" />
+	</bean>
+
+
+	<bean id="reloadConfiguration" class="com.nfd.common.spring.ReloadConfiguration">
+		<!-- <property name="bean" ref="configproperties"/> -->
+		<property name="reconfigurableBeans">
+			<list>
+				<ref bean="configproperties" />
+				<ref bean="dbConfigproperties" />
+			</list>
+		</property>
+	</bean>
+
+	<!--要调度的对象 -->
+	<bean id="jobDetail"
+		class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+		<property name="targetObject" ref="reloadConfiguration" />
+		<property name="targetMethod" value="run" />
+		<!--将并发设置为false -->
+		<property name="concurrent" value="false" />
+	</bean>
+
+	<bean id="trigger"
+		class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+		<property name="jobDetail" ref="jobDetail" />
+		<!-- "0 */1 * * * ?"，每 1 分钟执行一次 -->
+		<property name="cronExpression" value="0/1 * * * * ?" />
+		<!-- 每天凌晨2点执行一次项目扫描等 -->
+		<!--<property name="cronExpression" value="0 0 2 * * ?" /> -->
+		<!-- "0 15 10 15 * ?" 每月15号的10:15触发 -->
+		<!-- "0 0/5 14,18 * * ?" 每天的下午2点至2：55和6点至6点55分两个时间段内每5分钟一次触发 -->
+	</bean>
+
+	<!-- 总管理类如果将lazy-init='false'那么容器启动就会执行调度程序 -->
+	<bean id="startQuertz"
+		class="org.springframework.scheduling.quartz.SchedulerFactoryBean">
+		<property name="triggers">
+			<list>
+				<!--作业调度器,list下可加入其他的调度器 -->
+				<ref bean="trigger" />
+			</list>
+		</property>
+	</bean>
+
+
+</beans>
